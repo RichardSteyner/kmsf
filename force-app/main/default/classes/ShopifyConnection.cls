@@ -2,12 +2,13 @@ public class ShopifyConnection {
     
     //public static ShopifyAPI__c authentication = ShopifyAPI__c.getOrgDefaults();
 
-    public static String getShopifyEntity(String instance, String entity, String filters){
+    public static String[] getShopifyEntity(String instance, String entity, String filters){
         ShopifyAPI_List__c authentication = ShopifyAPI_List__c.getValues(instance);
+        String headerLink = null;
         Blob headerValue = Blob.valueOf(authentication.API_Key__c + ':' + authentication.Password__c);
         String authorizationHeader = 'Basic ' + EncodingUtil.base64Encode(headerValue);
         HttpRequest request = new HttpRequest();
-        request.setEndpoint(authentication.Base_URL__c + entity + (String.isNotBlank(filters) ? '?' + filters : ''));
+        request.setEndpoint(authentication.Base_URL__c + authentication.Version__c + '/' + entity + (String.isNotBlank(filters) ? '?' + filters : ''));
 		//System.debug(endpoint);
         request.setHeader('Accept','application/json');
         request.setHeader('Content-type', 'application/json');
@@ -19,7 +20,9 @@ public class ShopifyConnection {
         try{
             if(!Test.isRunningTest()){
                 response = http.send(request);
-                System.debug('->ShopifyConnection= ' + authentication.Base_URL__c + ', entity = ' +  entity + ', filters = ' +  filters + ') => Response Status Code: ' + response.getStatusCode() + ', Response Body: ' + (String.isNotEmpty(response.getBody()) ? response.getBody().left(255) : ''));
+                System.debug(response.getHeader('Link'));
+                headerLink = response.getHeader('Link');
+                System.debug('->ShopifyConnection= ' + authentication.Base_URL__c + ', version = ' +  authentication.Version__c + ', entity = ' +  entity + ', filters = ' +  filters + ') => Response Status Code: ' + response.getStatusCode() + ', Response Body: ' + (String.isNotEmpty(response.getBody()) ? response.getBody().left(255) : ''));
             }else{
                 response = new HTTPResponse();
                 response.setStatusCode(200);
@@ -33,13 +36,30 @@ public class ShopifyConnection {
         catch(Exception e){
             response = new HTTPResponse();
             response.setStatusCode(500);
-            System.debug('-->ShopifyConnection= ' + authentication.Base_URL__c + ', entity = ' +  entity + ') - Callout Exception: ' + e.getMessage());
+            System.debug('-->ShopifyConnection= ' + authentication.Base_URL__c + ', version = ' +  authentication.Version__c + ', entity = ' +  entity + ') - Callout Exception: ' + e.getMessage());
         }
-        return response.getBody();
+		return new String []{response.getBody(), getNextPage(headerLink)};
+        //return response.getBody();
     }
                                                                     
  	public static String getShopifyID(String idS, String instance){
     	return idS.contains(instance) ? idS.substring(instance.length()+1, idS.length()) : ids;
+    }
+                                                                    
+    public static String getNextPage(String link){
+        String pageInfo = '';
+        if(link!=null){
+    		List<String> enlaces = new List<String>();
+            enlaces = link.split(',');
+            for(String e : enlaces){
+                System.debug(e);
+                if(e.contains('next'))
+                    pageInfo = e.subStringBetween('?', '>');
+            }
+        }
+        System.debug('-------------------------------');
+        System.debug(pageInfo);	  
+        return pageInfo;
     }
     
 }
