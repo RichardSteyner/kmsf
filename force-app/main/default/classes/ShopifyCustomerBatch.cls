@@ -2,26 +2,31 @@ global class ShopifyCustomerBatch implements Database.Batchable<ShopifyCustomer>
     public String instance;
     public Boolean isAll;
     public Integer pageSize;
-    public Integer initPage;
-    public String filterAditional; //agregar la fecha minima de actualizacion
+    public String pageInfo;
+    public String filterAditional; //add minimum update date
     
     global ShopifyCustomerBatch(String instance, Boolean isAll, Integer pageSize){
-        this(instance, isAll, pageSize, 1);
+        this(instance, isAll, pageSize, '');
     }
     
-    global ShopifyCustomerBatch(String instance, Boolean isAll, Integer pageSize, Integer initPage){
+    global ShopifyCustomerBatch(String instance, Boolean isAll, Integer pageSize, String pageInfo){
         this.instance = instance;
         this.isAll = isAll;
         this.pageSize = pageSize;
-        this.initPage = initPage;
+        this.pageInfo = pageInfo;
         filterAditional = (!isAll ? ('&updated_at_min=' + Datetime.now().addHours(-12).format('yyyy-MM-dd')) : '');
     }
     
     global List<ShopifyCustomer> start(Database.BatchableContext BC){
-        String jsonString = ShopifyConnection.getShopifyEntity(instance, 'customers', 'limit=' + pageSize + '&page=' + initPage + filterAditional);
+        String[] jsonString;
+        if(String.isBlank(pageInfo))
+        	jsonString = ShopifyConnection.getShopifyEntity(instance, 'customers', 'limit=' + pageSize + filterAditional);
+        else
+            jsonString = ShopifyConnection.getShopifyEntity(instance, 'customers', pageInfo);
         CustomerParser jsonCustomers = new CustomerParser();
-       	jsonCustomers = (CustomerParser)json.deserialize(jsonString, CustomerParser.class);
-        if(jsonCustomers.customers.size()>0) initPage++; else initPage = 0;
+       	jsonCustomers = (CustomerParser)json.deserialize(jsonString[0], CustomerParser.class);
+        pageInfo = jsonString[1];
+        //if(jsonCustomers.customers.size()>0) initPage++; else initPage = 0;
         return jsonCustomers.customers;
     }
     
@@ -83,9 +88,9 @@ global class ShopifyCustomerBatch implements Database.Batchable<ShopifyCustomer>
     }
     
     global void finish(Database.BatchableContext BC){
-        System.debug('Finsih ShopifyCustomerBatch: initPage->' + initPage);
+        System.debug('Finsih ShopifyCustomerBatch: pageInfo->' + pageInfo);
         if(!Test.isRunningTest()){
-            if(initPage>0) System.scheduleBatch(new ShopifyCustomerBatch(instance, isAll, pageSize, initPage), 'ShopifyCustomerBatch-' + initPage, 1, 100);
+            if(!String.isBlank(pageInfo)) System.scheduleBatch(new ShopifyCustomerBatch(instance, isAll, pageSize, pageInfo), 'ShopifyCustomerBatch', 1, 100);
             else Database.executeBatch(new ShopifyProductBatch(instance, isAll, pageSize));
         }
     }
