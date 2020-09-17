@@ -101,5 +101,10 @@ public class Shopify_Test {
 		scheduler.execute(sc);
         Test.stopTest();
     }
+    
+    @isTest static void testGetNextPage(){
+        String link = '<https://innergcbd.myshopify.com/admin/api/2020-10/orders?limit=5&page_info=eyJkaXJlY3Rpb24iOiJwcmV2Iiwic3RhdHVzIjoiYW55IiwidXBkYXRlZF9hdF9taW4iOiIyMDIwLTA5LTE3IDAwOjAwOjAwIFVUQyIsImxhc3RfaWQiOjI3MDY0MzU3MDI5NDIsImxhc3RfdmFsdWUiOiIyMDIwLTA5LTEzIDIwOjI4OjExLjM3ODg2NCJ9>; rel="previous",<https://innergcbd.myshopify.com/admin/api/2020-10/orders?limit=5&page_info=eyJkaXJlY3Rpb24iOiJuZXh0Iiwic3RhdHVzIjoiYW55IiwidXBkYXRlZF9hdF9taW4iOiIyMDIwLTA5LTE3IDAwOjAwOjAwIFVUQyIsImxhc3RfaWQiOjI2MzEzMDkyOTU3NzQsImxhc3RfdmFsdWUiOiIyMDIwLTA4LTE1IDAzOjUzOjQ5LjYxMzQzNSJ9>; rel="next"';
+        ShopifyConnection.getNextPage(link);
+    }
 
 }
