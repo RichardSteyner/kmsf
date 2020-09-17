@@ -2,26 +2,31 @@ global class ShopifyCheckoutBatch implements Database.Batchable<ShopifyCheckout>
     public String instance;
     public Boolean isAll;
     public Integer pageSize;
-    public Integer initPage;
-    public String filterAditional; //agregar la fecha minima de actualizacion
+    public String pageInfo;
+    public String filterAditional; //add minimum update date
     
     global ShopifyCheckoutBatch(String instance, Boolean isAll, Integer pageSize){
-        this(instance, isAll, pageSize, 1);
+        this(instance, isAll, pageSize, '');
     }
     
-    global ShopifyCheckoutBatch(String instance, Boolean isAll, Integer pageSize, Integer initPage){
+    global ShopifyCheckoutBatch(String instance, Boolean isAll, Integer pageSize, String pageInfo){
         this.instance = instance;
         this.isAll = isAll;
         this.pageSize = pageSize;
-        this.initPage = initPage;
+        this.pageInfo = pageInfo;
         filterAditional = (!isAll ? ('&updated_at_min=' + Datetime.now().addHours(-12).format('yyyy-MM-dd')) : '');
     }
     
     global List<ShopifyCheckout> start(Database.BatchableContext BC){
-        String jsonString = ShopifyConnection.getShopifyEntity(instance, 'checkouts/', 'status=any&limit=' + pageSize + '&page=' + initPage + filterAditional);
+        String[] jsonString;
+        if(String.isBlank(pageInfo))
+        	jsonString = ShopifyConnection.getShopifyEntity(instance, 'checkouts', 'status=any&limit=' + pageSize + + filterAditional);
+        else
+            jsonString = ShopifyConnection.getShopifyEntity(instance, 'checkouts', pageInfo);
         CheckoutParser jsonCheckouts = new CheckoutParser();
-       	jsonCheckouts = (CheckoutParser)json.deserialize(jsonString, CheckoutParser.class);
-        if(jsonCheckouts.checkouts.size()>0) initPage++; else initPage = 0;
+       	jsonCheckouts = (CheckoutParser)json.deserialize(jsonString[0], CheckoutParser.class);
+        //if(jsonCheckouts.checkouts.size()>0) initPage++; else initPage = 0;
+        pageInfo = jsonString[1];
         return jsonCheckouts.checkouts;
     }
     
@@ -192,7 +197,7 @@ global class ShopifyCheckoutBatch implements Database.Batchable<ShopifyCheckout>
     global void finish(Database.BatchableContext BC){
         System.debug('Finsih ShopifyCheckoutBatch');
         if(!Test.isRunningTest()){
-            if(initPage>0) System.scheduleBatch(new ShopifyCheckoutBatch(instance, isAll, pageSize, initPage), 'ShopifyCheckoutBatch-' + initPage, 1, 100);
+            if(!String.isBlank(pageInfo)) System.scheduleBatch(new ShopifyCheckoutBatch(instance, isAll, pageSize, pageInfo), 'ShopifyCheckoutBatch', 1, 100);
             /*if(isAll) ApexUtil.findEscuela(-1);
             else Database.executeBatch(new AeriesGetStudentDataChangesBatch(false, 'student'));*/
         }
